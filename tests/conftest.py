@@ -23,7 +23,6 @@ from mflsoildata_orm.models import (
 
 @pytest.fixture()
 def db_session():
-    # Create only the tables needed for the unit tests
     # If running tests on SQLite, provide a small shim so JSONB columns compile
     # as JSON (SQLite doesn't have JSONB). This allows create_all to succeed.
     if engine.dialect.name == "sqlite":
@@ -34,20 +33,10 @@ def db_session():
         except Exception:
             pass
 
-    # Exclude Project because it uses JSONB which SQLite cannot compile
-    tables = [
-        Unit.__table__,
-        Method.__table__,
-        Lab.__table__,
-        Variable.__table__,
-        SampleType.__table__,
-        Sample.__table__,
-        SampleAttribute.__table__,
-    ]
-    Base.metadata.create_all(bind=engine, tables=tables)
+    Base.metadata.create_all(bind=engine)
     session = SessionLocal()
     try:
         yield session
     finally:
         session.close()
-        Base.metadata.drop_all(bind=engine, tables=tables)
+        Base.metadata.drop_all(bind=engine)

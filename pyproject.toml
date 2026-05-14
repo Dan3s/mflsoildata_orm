@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mflsoildata_orm"
 version = "0.1.0"
-description = "ORM for Soil Platform v6 database"
+description = "ORM for Soil Platform database"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [

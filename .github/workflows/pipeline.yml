@@ -17,6 +17,21 @@ jobs:
   TestORM:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: soil_platform
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d soil_platform"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - uses: actions/checkout@v3
 
@@ -35,7 +50,7 @@ jobs:
 
       - name: Run Tests with pytest
         env:
-          DATABASE_URL: "sqlite:///:memory:"  # Base de datos SQLite en RAM (sin archivo)
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/soil_platform"
         run: |
           source env/bin/activate
           PYTHONPATH=$PYTHONPATH:./src pytest tests/
