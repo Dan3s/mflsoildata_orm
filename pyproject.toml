@@ -1,27 +1,15 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = [ "setuptools>=61.0",]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "mflsoildata_orm"
-version = "0.1.0"
+version = "v0.0.1"
 description = "ORM for Soil Platform database"
 readme = "README.md"
 requires-python = ">=3.10"
-classifiers = [
-  "Programming Language :: Python :: 3",
-  "Operating System :: OS Independent",
-]
-dependencies = [
-  "sqlalchemy>=2.0.41",
-  "psycopg2>=2.9.10",
-  "python-dotenv>=1.1.0",
-  "typing_extensions>=4.13.2",
-  "pydantic>=2.11.4",
-  "alembic>=1.18.2",
-  "geoalchemy2>=0.15.2",
-]
-
+classifiers = [ "Programming Language :: Python :: 3", "Operating System :: OS Independent",]
+dependencies = [ "sqlalchemy>=2.0.41", "psycopg2>=2.9.10", "python-dotenv>=1.1.0", "typing_extensions>=4.13.2", "pydantic>=2.11.4", "alembic>=1.18.2", "geoalchemy2>=0.15.2",]
 [[project.authors]]
 name = "CGIAR"
 
@@ -32,7 +20,7 @@ text = "MIT"
 "" = "src"
 
 [tool.setuptools.package-data]
-mflsoildata_orm = ["alembic.ini", "migrations/script.py.mako"]
+mflsoildata_orm = [ "alembic.ini", "migrations/script.py.mako",]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = [ "src",]
