@@ -5,11 +5,16 @@ from mflsoildata_orm.schemas.unit_schema import UnitCreate
 
 
 def test_create_and_get_sample_attribute(db_session):
-    us = UnitService(db_session)
-    u = us.create(UnitCreate(name="g/kg"))
+    us = UnitService()
+    u = us.create(UnitCreate(unit_code="GKG", symbol="g/kg"), db=db_session)
 
-    svc = SampleAttributeService(db_session)
-    dto = SampleAttributeCreate(name="OrganicMatter", unit_id=u.id)
-    created = svc.create(dto)
-    fetched = svc.get_by_id(created.id)
+    svc = SampleAttributeService()
+    dto = SampleAttributeCreate(
+        sample_attribute_code="OM",
+        name="OrganicMatter",
+        value_type="numeric",
+        default_unit_id=u.id,
+    )
+    created = svc.create(dto, db=db_session)
+    fetched = svc.get_by_id(created.id, db=db_session)
     assert fetched.name == "OrganicMatter"
