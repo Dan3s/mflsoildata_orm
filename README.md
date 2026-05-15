@@ -7,11 +7,20 @@ ORM for the Soil Platform v6 database (PostgreSQL + PostGIS).
 - Python >= 3.10
 - PostgreSQL with PostGIS
 
-## Installation
+# Installation
+
+Install directly from GitHub:
 
 ```bash
-pip install -e .
+pip install git+https://github.com/Dan3s/mflsoildata_orm
 ```
+
+To install a specific version:
+
+```bash
+pip install git+https://github.com/Dan3s/mflsoildata_orm@v0.0.9
+```
+
 
 ## Environment
 
