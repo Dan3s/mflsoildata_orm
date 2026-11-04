@@ -18,6 +18,10 @@ from .soil_profile_attribute import SoilProfileAttribute
 from .soil_profile_attribute_value import SoilProfileAttributeValue
 from .site_attribute import SiteAttribute
 from .site_attribute_value import SiteAttributeValue
+from .download_log import DownloadLog
+from .project_metadata import ProjectMetadata
+from .dataset_submission import DatasetSubmission
+from .submission_row import SubmissionRow
 
 __all__ = [
     "Project",
@@ -40,4 +44,8 @@ __all__ = [
     "SoilProfileAttributeValue",
     "SiteAttribute",
     "SiteAttributeValue",
+    "DownloadLog",
+    "ProjectMetadata",
+    "DatasetSubmission",
+    "SubmissionRow",
 ]

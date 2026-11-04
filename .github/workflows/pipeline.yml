@@ -1,29 +1,41 @@
-name: Devops MFLSOILDATA ORM
+name: CI/CD ORM
+
+# develop  -> every push is tested (fast feedback while working).
+# PR to stage -> tested before it can be merged.
+# stage    -> tested again on the merged result; if green it is merged into main,
+#             the package version is bumped and a release is cut. Nothing else touches main.
 
 on:
   push:
-    branches: [ "stage" ]
-    tags:
-    - 'v*'
+    branches: [develop, stage]
+  pull_request:
+    branches: [stage]
+  workflow_dispatch:
 
+# A newer push to develop / a PR supersedes the run before it, but a promotion that is
+# already running on stage is never cancelled half-way.
+concurrency:
+  group: orm-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/stage' }}
 
 permissions:
   contents: read
 
 jobs:
-
-# ------- START ORM PROCCESS -------- #
-
-  TestORM:
+  # ------------------------------------------------------------------ TESTS ----
+  test:
+    name: Tests (Python + PostGIS)
     runs-on: ubuntu-latest
 
+    # The database password exists only for this run's throwaway container and is derived from the
+    # run id, so no password is spelled out in the repository.
     services:
       postgres:
         image: postgis/postgis:16-3.4
         env:
           POSTGRES_DB: soil_platform
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ci-${{ github.run_id }}
         ports:
           - 5432:5432
         options: >-
@@ -32,120 +44,117 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+    env:
+      PGPASSWORD: ci-${{ github.run_id }}
+
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v3
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
 
-      - name: Create environment and install dependencies
+      - name: Install dependencies
         run: |
-          python -m venv env
-          source env/bin/activate
-          pip install -r requirements.txt
-          pip install pytest
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
           pip install -e .
 
-      - name: Run Tests with pytest
+      # A new developer (or a new environment) starts from an empty database: the whole
+      # migration chain has to run on one.
+      - name: Migrations apply on an empty database
         env:
-          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/soil_platform"
+          DATABASE_URL: postgresql://postgres:ci-${{ github.run_id }}@localhost:5432/migrations_check
         run: |
-          source env/bin/activate
-          PYTHONPATH=$PYTHONPATH:./src pytest tests/
+          psql -h localhost -U postgres -c "CREATE DATABASE migrations_check"
+          psql -h localhost -U postgres -d migrations_check -c "CREATE EXTENSION IF NOT EXISTS postgis"
+          python -c "from mflsoildata_orm.migrations import upgrade, current; upgrade(); current()"
 
-# ------- END ORM PROCCESS -------- #    
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://postgres:ci-${{ github.run_id }}@localhost:5432/soil_platform
+        run: pytest tests/
 
-# ------- START MERGE PROCCESS -------- #
-
-  MergeMainORM:
-    needs: [TestORM]
-    name: Merge Stage with Main
-    permissions: write-all
+  # ---------------------------------------------------------------- PROMOTE ----
+  promote:
+    name: Merge stage into main
+    if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
+    needs: test
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
+    permissions:
+      contents: write
+    concurrency:
+      group: orm-promote
+      cancel-in-progress: false
 
-      - name: Merge stage -> main
-        uses: devmasx/merge-branch@master
+    steps:
+      - uses: actions/checkout@v4
         with:
-          type: now
-          head_to_merge: ${{ github.ref }}
-          target_branch: main
-          github_token: ${{ github.token }}
+          fetch-depth: 0
+          # If main is protected, use a token that may push to it (see README).
+          token: ${{ secrets.PROMOTE_TOKEN || secrets.GITHUB_TOKEN }}
 
-# ------- END MERGE PROCCESS -------- #
+      - name: Merge the tested commit into main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B main origin/main
+          # The exact commit that passed the tests, not whatever stage points to by now.
+          git merge --no-ff "$GITHUB_SHA" -m "Promote stage to main (${GITHUB_SHA::7})"
+          git push origin main
 
-# ------- START RELEASE PROCCESS -------- #
-
-  PostRelease:
-    needs: MergeMainORM
-    name: Create Release
+  # ---------------------------------------------------------------- RELEASE ----
+  release:
+    name: Bump version and create release
+    needs: promote
     runs-on: ubuntu-latest
-    permissions: write-all
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: '0'
-    # API Zip
-    - name: Zip artifact for deployment
-      run: zip releaseORM.zip ./src/* -r
-    # Upload Artifacts
-    - name: Upload ORM artifact for deployment job
-      uses: actions/upload-artifact@v4
-      with:
-        name: ORM
-        path: releaseORM.zip
-    # Generate Tagname
-    - name: Generate Tagname for release
-      id: taggerDryRun
-      uses: anothrNick/github-tag-action@1.61.0
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        WITH_V: true
-        DRY_RUN: true
-        DEFAULT_BUMP: patch
-        RELEASE_BRANCHES : stage,main
-        BRANCH_HISTORY: last
-    # Create release
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-      with:
-        tag_name: ${{ steps.taggerDryRun.outputs.new_tag }}
-        release_name: Release ${{ steps.taggerDryRun.outputs.new_tag }}
-        #body_path: ./body.md
-        body: ${{ github.event.head_commit.message }}
-        draft: false
-        prerelease: false
-    # Upload Assets to release
-    - name: Upload Release Asset ORM
-      id: upload-orm-release-asset 
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-        asset_path: ./releaseORM.zip
-        asset_name: releaseORM.zip
-        asset_content_type: application/zip
-    # update version pyproject.toml
-    - name: Checkout code
-      uses: actions/checkout@v3
-      with:
-        ref: main
-    - name: Update version in pyproject.toml
-      run: |
-        pip install toml
-        python -c "import toml; f = open('pyproject.toml', 'r'); data = toml.load(f); f.close(); data['project']['version'] = '${{ steps.taggerDryRun.outputs.new_tag }}'; f = open('pyproject.toml', 'w'); toml.dump(data, f); f.close()"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Commit changes
-      uses: stefanzweifel/git-auto-commit-action@v4
-      with:
-        commit_message: "Update version to ${{ steps.taggerDryRun.outputs.new_tag }}"
+    permissions:
+      contents: write
 
-# ------- END RELEASE PROCCESS -------- #
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.PROMOTE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Next version
+        id: version
+        run: |
+          last=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+          if [ -z "$last" ]; then
+            next="v0.1.0"
+          else
+            IFS=. read -r major minor patch <<< "${last#v}"
+            next="v${major}.${minor}.$((patch + 1))"
+          fi
+          echo "tag=$next" >> "$GITHUB_OUTPUT"
+
+      # The API installs this package straight from a tag, so the tagged commit has to carry
+      # the version it is tagged with.
+      - name: Write the version into pyproject.toml
+        run: |
+          version="${{ steps.version.outputs.tag }}"
+          sed -i -E "s/^version = \".*\"/version = \"${version#v}\"/" pyproject.toml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml
+          git commit -m "Release ${{ steps.version.outputs.tag }}" || echo "version already up to date"
+          git push origin main
+
+      - name: Package
+        run: zip -r releaseORM.zip src
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" releaseORM.zip \
+            --target "$(git rev-parse HEAD)" \
+            --title "Release ${{ steps.version.outputs.tag }}" \
+            --generate-notes

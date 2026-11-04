@@ -27,3 +27,9 @@ class Project(Base):
     sites = relationship("Site", back_populates="project")
     sampling_events = relationship("SamplingEvent", back_populates="project")
     soil_profiles = relationship("SoilProfile", back_populates="project")
+    metadata_ = relationship(
+        "ProjectMetadata",
+        back_populates="project",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
