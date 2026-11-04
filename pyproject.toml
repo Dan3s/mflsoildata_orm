@@ -13,7 +13,7 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 dependencies = [
-  "sqlalchemy>=2.0.41",
+  "sqlalchemy>=2.0.41,<2.1",
   "psycopg2>=2.9.10",
   "python-dotenv>=1.1.0",
   "typing_extensions>=4.13.2",
