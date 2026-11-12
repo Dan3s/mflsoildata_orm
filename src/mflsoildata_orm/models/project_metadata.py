@@ -65,8 +65,12 @@ class ProjectMetadata(Base):
     temporal_coverage_start = Column(Date)
     temporal_coverage_end = Column(Date)
     spatial_coverage = Column(Text)
-    # Geometry the dataset describes: POINT | LINE | POLYGON | RASTER.
+    # Geometry the dataset describes: POINT | LINE | POLYGON.
     spatial_data_type = Column(String)
+    # How the soil was sampled, as a list because a dataset can mix both:
+    # FARM_COMPOSITE (one composite sample for a whole farm) | SINGLE_POINT (an
+    # individual sample at one point).
+    sampling_type = Column(JSONB)
     expected_matrices = Column(JSONB)
     expected_variables = Column(Text)
     sampling_design = Column(Text)
@@ -80,6 +84,8 @@ class ProjectMetadata(Base):
 
     # Reusable / provenance
     data_source = Column(String)
+    # Research group (within the source organization) that produced the data.
+    research_group = Column(String)
     provenance = Column(Text)
     methodology = Column(Text)
     citation = Column(Text)
