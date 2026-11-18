@@ -32,6 +32,9 @@ class Site(Base):
     admin_3 = Column(String)
     altitude_m = Column(Numeric)
     geom = Column(Geometry(geometry_type="GEOMETRY", srid=4326), nullable=False)
+    # How far to trust ``geom``: EXACT (coordinates were given), or ADMIN_2 / ADMIN_1 when the
+    # site came without coordinates and sits at the centre of its municipality / department.
+    location_precision = Column(String, nullable=False, server_default="EXACT")
     location_notes = Column(JSONB)
     notes = Column(JSONB)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

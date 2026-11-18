@@ -1,5 +1,6 @@
 from .project import Project
 from .site import Site
+from .admin_area import AdminArea
 from .site_characteristic import SiteCharacteristic
 from .sampling_event import SamplingEvent
 from .lab import Lab
@@ -26,6 +27,7 @@ from .submission_row import SubmissionRow
 __all__ = [
     "Project",
     "Site",
+    "AdminArea",
     "SiteCharacteristic",
     "SamplingEvent",
     "Lab",
